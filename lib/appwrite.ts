@@ -7,12 +7,12 @@ import {
   Avatars,
   Query,
   Storage,
-} from "react-native-appwrite";
+} from "appwrite";
 import * as Linking from "expo-linking";
 import { openAuthSessionAsync } from "expo-web-browser";
 
 export const config = {
-  platform: "com.jsm.restate",
+  platform: "com.restate.restate",
   endpoint: process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT,
   projectId: process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID,
   databaseId: process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID,
@@ -26,10 +26,7 @@ export const config = {
 };
 
 export const client = new Client();
-client
-  .setEndpoint(config.endpoint!)
-  .setProject(config.projectId!)
-  .setPlatform(config.platform!);
+client.setEndpoint(config.endpoint!).setProject(config.projectId!);
 
 export const avatar = new Avatars(client);
 export const account = new Account(client);
@@ -40,26 +37,32 @@ export async function login() {
   try {
     const redirectUri = Linking.createURL("/");
 
-    const response = await account.createOAuth2Token(
-      OAuthProvider.Google,
-      redirectUri
-    );
-    if (!response) throw new Error("Create OAuth2 token failed");
+    // Use token endpoint for mobile apps - returns userId and secret in callback
+    const oauthUrl = `${config.endpoint}/account/tokens/oauth2/google?project=${config.projectId}&success=${encodeURIComponent(redirectUri)}&failure=${encodeURIComponent(redirectUri)}`;
 
-    const browserResult = await openAuthSessionAsync(
-      response.toString(),
-      redirectUri
-    );
-    if (browserResult.type !== "success")
-      throw new Error("Create OAuth2 token failed");
+    const browserResult = await openAuthSessionAsync(oauthUrl, redirectUri);
 
+    if (browserResult.type !== "success") {
+      throw new Error("OAuth authentication failed");
+    }
+
+    // Parse the callback URL for userId and secret
     const url = new URL(browserResult.url);
-    const secret = url.searchParams.get("secret")?.toString();
-    const userId = url.searchParams.get("userId")?.toString();
-    if (!secret || !userId) throw new Error("Create OAuth2 token failed");
+    const userId = url.searchParams.get("userId");
+    const secret = url.searchParams.get("secret");
 
+    // Debug: log the callback URL to see what we're getting
+    console.log("Callback URL:", browserResult.url);
+
+    if (!userId || !secret) {
+      throw new Error("OAuth callback missing credentials");
+    }
+
+    // Create session using the userId and secret
     const session = await account.createSession(userId, secret);
-    if (!session) throw new Error("Failed to create session");
+    if (!session) {
+      throw new Error("Failed to create session");
+    }
 
     return true;
   } catch (error) {
@@ -92,7 +95,7 @@ export async function getCurrentUser() {
 
     return null;
   } catch (error) {
-    console.log(error);
+    // Silently return null for unauthenticated users (expected behavior)
     return null;
   }
 }
@@ -102,7 +105,7 @@ export async function getLatestProperties() {
     const result = await databases.listDocuments(
       config.databaseId!,
       config.propertiesCollectionId!,
-      [Query.orderAsc("$createdAt"), Query.limit(5)]
+      [Query.orderAsc("$createdAt"), Query.limit(5)],
     );
 
     return result.documents;
@@ -133,7 +136,7 @@ export async function getProperties({
           Query.search("name", query),
           Query.search("address", query),
           Query.search("type", query),
-        ])
+        ]),
       );
 
     if (limit) buildQuery.push(Query.limit(limit));
@@ -141,7 +144,7 @@ export async function getProperties({
     const result = await databases.listDocuments(
       config.databaseId!,
       config.propertiesCollectionId!,
-      buildQuery
+      buildQuery,
     );
 
     return result.documents;
@@ -157,7 +160,7 @@ export async function getPropertyById({ id }: { id: string }) {
     const result = await databases.getDocument(
       config.databaseId!,
       config.propertiesCollectionId!,
-      id
+      id,
     );
     return result;
   } catch (error) {

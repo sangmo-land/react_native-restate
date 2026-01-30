@@ -1,4 +1,4 @@
-import { ID } from "react-native-appwrite";
+import { ID } from "appwrite";
 import { databases, config } from "./appwrite";
 import {
   agentImages,
@@ -16,37 +16,28 @@ const COLLECTIONS = {
 
 const propertyTypes = [
   "House",
-  "Townhomes",
-  "Condos",
-  "Duplexes",
-  "Studios",
+  "Townhouse",
+  "Condo",
+  "Duplex",
+  "Studio",
   "Villa",
-  "Apartments",
-  "Others",
+  "Appartment",
+  "Other",
 ];
 
-const facilities = [
-  "Laundry",
-  "Car Parking",
-  "Sports Center",
-  "Cutlery",
-  "Gym",
-  "Swimming pool",
-  "Wifi",
-  "Pet Center",
-];
+const facilities = ["Laundry", "Parking", "Gymn", "Wifi", "Pet-friendly"];
 
 function getRandomSubset<T>(
   array: T[],
   minItems: number,
-  maxItems: number
+  maxItems: number,
 ): T[] {
   if (minItems > maxItems) {
     throw new Error("minItems cannot be greater than maxItems");
   }
   if (minItems < 0 || maxItems > array.length) {
     throw new Error(
-      "minItems or maxItems are out of valid range for the array"
+      "minItems or maxItems are out of valid range for the array",
     );
   }
 
@@ -77,13 +68,13 @@ async function seed() {
       const collectionId = COLLECTIONS[key as keyof typeof COLLECTIONS];
       const documents = await databases.listDocuments(
         config.databaseId!,
-        collectionId!
+        collectionId!,
       );
       for (const doc of documents.documents) {
         await databases.deleteDocument(
           config.databaseId!,
           collectionId!,
-          doc.$id
+          doc.$id,
         );
       }
     }
@@ -101,7 +92,7 @@ async function seed() {
           name: `Agent ${i}`,
           email: `agent${i}@example.com`,
           avatar: agentImages[Math.floor(Math.random() * agentImages.length)],
-        }
+        },
       );
       agents.push(agent);
     }
@@ -119,7 +110,7 @@ async function seed() {
           avatar: reviewImages[Math.floor(Math.random() * reviewImages.length)],
           review: `This is a review by Reviewer ${i}.`,
           rating: Math.floor(Math.random() * 5) + 1, // Rating between 1 and 5
-        }
+        },
       );
       reviews.push(review);
     }
@@ -132,7 +123,7 @@ async function seed() {
         config.databaseId!,
         COLLECTIONS.GALLERY!,
         ID.unique(),
-        { image }
+        { image },
       );
       galleries.push(gallery);
     }
@@ -143,8 +134,8 @@ async function seed() {
     for (let i = 1; i <= 20; i++) {
       const assignedAgent = agents[Math.floor(Math.random() * agents.length)];
 
-      const assignedReviews = getRandomSubset(reviews, 5, 7); // 5 to 7 reviews
-      const assignedGalleries = getRandomSubset(galleries, 3, 8); // 3 to 8 galleries
+      const assignedReview = reviews[Math.floor(Math.random() * reviews.length)];
+      const assignedGallery = galleries[Math.floor(Math.random() * galleries.length)];
 
       const selectedFacilities = facilities
         .sort(() => 0.5 - Math.random())
@@ -175,9 +166,9 @@ async function seed() {
           facilities: selectedFacilities,
           image: image,
           agent: assignedAgent.$id,
-          reviews: assignedReviews.map((review) => review.$id),
-          gallery: assignedGalleries.map((gallery) => gallery.$id),
-        }
+          reviews: assignedReview.$id,
+          gallery: [assignedGallery.$id],
+        },
       );
 
       console.log(`Seeded property: ${property.name}`);

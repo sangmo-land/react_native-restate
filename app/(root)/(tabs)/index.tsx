@@ -1,12 +1,13 @@
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,9 +21,11 @@ import { Card, FeaturedCard } from "@/components/Cards";
 import { useAppwrite } from "@/lib/useAppwrite";
 import { useGlobalContext } from "@/lib/global-provider";
 import { getLatestProperties, getProperties } from "@/lib/appwrite";
+import seed from "@/lib/seed";
 
 const Home = () => {
   const { user } = useGlobalContext();
+  const [seeding, setSeeding] = useState(false);
 
   const params = useLocalSearchParams<{ query?: string; filter?: string }>();
 
@@ -54,6 +57,24 @@ const Home = () => {
   }, [params.filter, params.query]);
 
   const handleCardPress = (id: string) => router.push(`/properties/${id}`);
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      await seed();
+      Alert.alert("Success", "Database seeded successfully!");
+      refetch({
+        filter: params.filter!,
+        query: params.query!,
+        limit: 6,
+      });
+    } catch (error) {
+      Alert.alert("Error", "Failed to seed database");
+      console.error(error);
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <SafeAreaView className="h-full bg-white">
@@ -130,7 +151,19 @@ const Home = () => {
               )}
             </View>
 
-            {/* <Button title="seed" onPress={seed} /> */}
+            <TouchableOpacity
+              onPress={handleSeed}
+              disabled={seeding}
+              className="bg-primary-300 py-3 px-5 rounded-full mt-5"
+            >
+              {seeding ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text className="text-white text-center font-rubik-bold">
+                  Seed Database
+                </Text>
+              )}
+            </TouchableOpacity>
 
             <View className="mt-5">
               <View className="flex flex-row items-center justify-between">
